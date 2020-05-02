@@ -5,7 +5,11 @@ const morgan = require('morgan');
 const uuid = require('uuid');
 
 
-const validateApiKey = require('./middleware/validate-bearer-token')
+const validateApiKey = require('./middleware/validate-bearer-token');
+
+//database
+const { Bookmarks } = require('./bookMarksModel');
+const mongoose = require('mongoose');
 
 
 //my app use the feature of express
@@ -15,6 +19,8 @@ const jsonParser = bodyParser.json();
 app.use( morgan('dev'));
 
 app.use(validateApiKey);
+
+/*
 
 let bookmarks = [
     {
@@ -47,10 +53,20 @@ let bookmarks = [
     }
 ]
 
+*/
+
+
 //GET ALL
 app.get('/bookmarks', (req,res) => {
     console.log("Getting all bookmarks.");
-    return res.status(200).json(bookmarks);
+    //return res.status(200).json(bookmarks);
+
+    Bookmarks
+        .getAllBookmarks()
+        .then( result =>{
+            return res.status(200).json(result);
+        })  
+
 });
 
 
@@ -73,6 +89,8 @@ app.get('/bookmark', (req,res) =>{
 
     }
 
+    /*
+
     //search in the json the id
     let result = bookmarks.find( (book) => {
         if(book.title == title)
@@ -88,8 +106,25 @@ app.get('/bookmark', (req,res) =>{
         return res.status( 404 ).end();
     }
 
+    
 
     return res.status(200).json(result);
+
+    */
+
+
+
+    //Add to the database
+    Bookmarks
+    .getByTitleBookmark(title)
+    .then( result =>{
+        return res.status( 201 ).json(result);
+    })
+    .catch ( error =>{
+        res.statusMessage = "Something went wrong with the DB. Try again later.";
+        return res.status(500).end();
+    });
+
 
 });
 
@@ -119,10 +154,32 @@ app.post('/bookmarks' , jsonParser, (req,res) => {
         return res.status( 406 ).end(); 
     }
 
+    /*
     let newBook = {id,title,description,url,rating};
     bookmarks.push( newBook );
         
     return res.status(201).json(bookmarks);
+    */
+
+    //Validate if id exist
+    const newBookmark = {
+        id,
+        title,
+        description,
+        url,
+        rating
+
+    };
+    Bookmarks
+        .createBookmark(newBookmark)
+        .then( result =>{
+            return res.status( 201 ).json(result);
+        })
+        .catch ( error =>{
+            res.statusMessage = "Something went wrong with the DB. Try again later.";
+            return res.status(500).end();
+        });
+
 
 });
 
@@ -144,6 +201,7 @@ app.delete('/bookmark/:id' ,  (req,res) => {
 
     }
 
+    /*
     //see if student exist
     let itemToRemove =  bookmarks.findIndex((book)=>{
         if(book.id === id)
@@ -164,6 +222,21 @@ app.delete('/bookmark/:id' ,  (req,res) => {
     bookmarks.splice(itemToRemove,1)
 
     return res.status(204).end();
+
+    */
+
+    //See if id exist
+
+        Bookmarks
+        .deleteBookmark(id)
+        .then( result =>{
+            return res.status( 201 ).json(result);
+        })
+        .catch ( error =>{
+            res.statusMessage = "Something went wrong with the DB. Try again later.";
+            return res.status(500).end();
+        });
+
 
 });
 
@@ -209,6 +282,7 @@ app.patch('/bookmark/:id', jsonParser,(req,res) => {
     }
 
 
+    /*
     for (var i = 0; i < bookmarks.length; i++) {
         if (bookmarks[i].id === id) {
 
@@ -235,19 +309,32 @@ app.patch('/bookmark/:id', jsonParser,(req,res) => {
 
             console.log(bookmarks[i])
         }
-      }
+      }*/
     
+      /*
       //search in the json the id
     let result = bookmarks.find( (book) => {
         if(book.id == id)
         {
             return book;
         }
-    });
+    });*/
 
     
-    return res.status(202).json(result);
+    //return res.status(202).json(result);
+    
+    let updaetBookmark = req.body;
 
+    Bookmarks
+        .patchBookmark(updaetBookmark, id)
+        .then( result =>{
+            return res.status( 201 ).json(result);
+        })
+        .catch ( error =>{
+            res.statusMessage = "Something went wrong with the DB. Try again later.";
+            return res.status(500).end();
+        });
+    
 
 
 });
@@ -257,7 +344,32 @@ app.patch('/bookmark/:id', jsonParser,(req,res) => {
 app.listen(8080, () => {
 
     console.log(
-        "This sever is running on port 8080" 
+        "This sever is running on port 8080"
     )
+
+    //connection to the databse
+    new Promise( (resolve, reject) => {
+
+        mongoose.connect('mongodb://localhost/bookmarksdb' , { useNewUrlParser: true , useUnifiedTopology: true ,useCreateIndex:true}, ( error) =>{
+
+            if(error)
+            {
+                reject(error);
+            }
+            else
+            {
+                console.log("bookmarks db connected succesfully")
+                return resolve();
+            }
+
+        });
+
+    })
+    .catch( error => {
+
+        mongoose.disconnect();
+        console.log(error);
+
+    })
 
 });
